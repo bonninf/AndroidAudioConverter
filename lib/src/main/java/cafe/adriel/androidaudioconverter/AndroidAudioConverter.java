@@ -2,16 +2,16 @@ package cafe.adriel.androidaudioconverter;
 
 import android.content.Context;
 
-import com.github.hiteshsondhi88.libffmpeg.FFmpeg;
-import com.github.hiteshsondhi88.libffmpeg.FFmpegExecuteResponseHandler;
-import com.github.hiteshsondhi88.libffmpeg.FFmpegLoadBinaryResponseHandler;
-
 import java.io.File;
 import java.io.IOException;
 
 import cafe.adriel.androidaudioconverter.callback.IConvertCallback;
 import cafe.adriel.androidaudioconverter.callback.ILoadCallback;
 import cafe.adriel.androidaudioconverter.model.AudioFormat;
+import nl.bravobit.ffmpeg.ExecuteBinaryResponseHandler;
+import nl.bravobit.ffmpeg.FFbinaryContextProvider;
+import nl.bravobit.ffmpeg.FFbinaryObserver;
+import nl.bravobit.ffmpeg.FFmpeg;
 
 public class AndroidAudioConverter {
 
@@ -32,29 +32,16 @@ public class AndroidAudioConverter {
 
     public static void load(Context context, final ILoadCallback callback){
         try {
-            FFmpeg.getInstance(context).loadBinary(new FFmpegLoadBinaryResponseHandler() {
-                        @Override
-                        public void onStart() {
 
-                        }
+            if (FFmpeg.getInstance(context).isSupported()) {
+                loaded = true;
+                callback.onSuccess();
+            }
+            else {
+                loaded = false;
+                callback.onFailure(new Exception("Failed to loaded FFmpeg lib"));
+            }
 
-                        @Override
-                        public void onSuccess() {
-                            loaded = true;
-                            callback.onSuccess();
-                        }
-
-                        @Override
-                        public void onFailure() {
-                            loaded = false;
-                            callback.onFailure(new Exception("Failed to loaded FFmpeg lib"));
-                        }
-
-                        @Override
-                        public void onFinish() {
-
-                        }
-                    });
         } catch (Exception e){
             loaded = false;
             callback.onFailure(e);
@@ -96,32 +83,28 @@ public class AndroidAudioConverter {
         final File convertedFile = getConvertedFile(audioFile, format);
         final String[] cmd = new String[]{"-y", "-i", audioFile.getPath(), convertedFile.getPath()};
         try {
-            FFmpeg.getInstance(context).execute(cmd, new FFmpegExecuteResponseHandler() {
-                        @Override
-                        public void onStart() {
+            FFmpeg.getInstance(context).execute(cmd, new ExecuteBinaryResponseHandler() {
+                @Override
+                public void onStart() {}
 
-                        }
+                @Override
+                public void onProgress(String message) {}
 
-                        @Override
-                        public void onProgress(String message) {
+                @Override
+                public void onFailure(String message) {
+                    callback.onFailure(new IOException(message));
+                }
 
-                        }
+                @Override
+                public void onSuccess(String message) {
+                    callback.onSuccess(convertedFile);
+                }
 
-                        @Override
-                        public void onSuccess(String message) {
-                            callback.onSuccess(convertedFile);
-                        }
+                @Override
+                public void onFinish() {}
 
-                        @Override
-                        public void onFailure(String message) {
-                            callback.onFailure(new IOException(message));
-                        }
+            });
 
-                        @Override
-                        public void onFinish() {
-
-                        }
-                    });
         } catch (Exception e){
             callback.onFailure(e);
         }
