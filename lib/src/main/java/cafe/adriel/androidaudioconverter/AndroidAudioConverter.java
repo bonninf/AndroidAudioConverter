@@ -2,16 +2,18 @@ package cafe.adriel.androidaudioconverter;
 
 import android.content.Context;
 
+import com.arthenica.ffmpegkit.ExecuteCallback;
+import com.arthenica.ffmpegkit.FFmpegKit;
+import com.arthenica.ffmpegkit.ReturnCode;
+import com.arthenica.ffmpegkit.Session;
+import com.arthenica.ffmpegkit.SessionState;
+
 import java.io.File;
 import java.io.IOException;
 
 import cafe.adriel.androidaudioconverter.callback.IConvertCallback;
 import cafe.adriel.androidaudioconverter.callback.ILoadCallback;
 import cafe.adriel.androidaudioconverter.model.AudioFormat;
-import nl.bravobit.ffmpeg.ExecuteBinaryResponseHandler;
-import nl.bravobit.ffmpeg.FFbinaryContextProvider;
-import nl.bravobit.ffmpeg.FFbinaryObserver;
-import nl.bravobit.ffmpeg.FFmpeg;
 
 public class AndroidAudioConverter {
 
@@ -31,9 +33,13 @@ public class AndroidAudioConverter {
     }
 
     public static void load(Context context, final ILoadCallback callback){
+        loaded = true;
+        callback.onSuccess();
+
+/*
         try {
 
-            if (FFmpeg.getInstance(context).isSupported()) {
+            if (FFmpegKit.getInstance(context).isSupported()) {
                 loaded = true;
                 callback.onSuccess();
             }
@@ -46,6 +52,7 @@ public class AndroidAudioConverter {
             loaded = false;
             callback.onFailure(e);
         }
+*/
     }
 
     public static AndroidAudioConverter with(Context context) {
@@ -81,8 +88,31 @@ public class AndroidAudioConverter {
             return;
         }
         final File convertedFile = getConvertedFile(audioFile, format);
-        final String[] cmd = new String[]{"-y", "-i", audioFile.getPath(), convertedFile.getPath()};
+        final String ffmpegCommand = String.format("-hide_banner -y -i %s -c:a libmp3lame -qscale:a 2 %s", audioFile.getPath(), convertedFile.getPath());
+//        final String[] cmd = new String[]{"-y", "-i", audioFile.getPath(), convertedFile.getPath()};
         try {
+
+            FFmpegKit.executeAsync(ffmpegCommand, new ExecuteCallback() {
+
+                @Override
+                public void apply(Session session) {
+                    final SessionState state = session.getState();
+                    final ReturnCode returnCode = session.getReturnCode();
+
+                    if (ReturnCode.isSuccess(returnCode)) {
+                        callback.onSuccess(convertedFile);
+                    }
+                    else {
+                        final String message = String.format("Encode failed with state %s and rc %s.%s", state, returnCode, notNull(session.getFailStackTrace(), "\n"));
+                        callback.onFailure(new IOException(message));
+                    }
+
+
+                }
+
+            });
+
+/*
             FFmpeg.getInstance(context).execute(cmd, new ExecuteBinaryResponseHandler() {
                 @Override
                 public void onStart() {}
@@ -104,6 +134,7 @@ public class AndroidAudioConverter {
                 public void onFinish() {}
 
             });
+*/
 
         } catch (Exception e){
             callback.onFailure(e);
@@ -114,5 +145,9 @@ public class AndroidAudioConverter {
         String[] f = originalFile.getPath().split("\\.");
         String filePath = originalFile.getPath().replace(f[f.length - 1], format.getFormat());
         return new File(filePath);
+    }
+
+    private static String notNull(final String string, final String valuePrefix) {
+        return (string == null) ? "" : String.format("%s%s", valuePrefix, string);
     }
 }

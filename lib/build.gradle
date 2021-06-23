@@ -20,5 +20,6 @@ android {
 
 dependencies {
     //implementation 'com.github.adrielcafe:ffmpeg-android-java:2a627f6ecd@aar'
-    implementation 'nl.bravobit:android-ffmpeg:1.1.7@aar'
+    //implementation 'nl.bravobit:android-ffmpeg:1.1.7@aar'
+    implementation 'com.arthenica:ffmpeg-kit-full:4.4.LTS'
 }
